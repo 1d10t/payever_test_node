@@ -1,0 +1,40 @@
+#!/usr/bin/env node
+
+const path = require("path"),
+  fs = require("fs"),
+  reqres = require("../helpers/reqres");
+
+const dataPath = path.join(__dirname, "../data");
+const cursorFile = path.join(dataPath, "page.cursor");
+const usersFile = path.join(dataPath, "users.ndjson");
+
+(async () => {
+  let page;
+  try {
+    page = fs.readFileSync(cursorFile, "utf8");
+  } catch (e) {
+    page = null;
+  }
+
+  page = page ? parseInt(page) + 1 : 1;
+
+  await new Promise(rv => {
+    reqres.getJSON(
+      `/api/users?page=${page}`,
+      obj => {
+        if (obj.page != page) return;
+
+        obj.data.forEach(user => {
+          console.log(`append to ${usersFile}`);
+          fs.appendFileSync(usersFile, JSON.stringify(user) + "\n");
+        });
+
+        console.log(`write ${cursorFile}`);
+        fs.writeFileSync(cursorFile, obj.page);
+
+        rv();
+      },
+      err => {}
+    );
+  });
+})();
